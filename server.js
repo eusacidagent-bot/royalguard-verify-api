@@ -5,49 +5,54 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Store pending verification requests
+// Stores game → bot events
 let pending = [];
 
-// ROBLOX sends a request here
-app.post("/verify", (req, res) => {
-    const { robloxId, code, discordId, channelId } = req.body;
+// Stores Discord → Roblox events (MessagingService relay)
+let relay = [];
 
-    // MUST check robloxId instead of username
-    if (!robloxId || !code || !discordId || !channelId) {
+// 🔵 BOT → ROBLOX: Send identity
+app.post("/mrelay", (req, res) => {
+    const { discordId, channelId, robloxId, realUsername } = req.body;
+
+    if (!discordId || !channelId || !robloxId || !realUsername)
         return res.status(400).send("INVALID_PAYLOAD");
-    }
 
-    console.log("New verification request:", req.body);
+    relay.push(req.body);
+    res.send("RELAY_RECEIVED");
+});
 
-    pending.push({
-        robloxId: Number(robloxId),  // ALWAYS store as number
-        code,
-        discordId,
-        channelId
-    });
+app.get("/relay", (req, res) => {
+    res.json(relay);
+});
 
+// ROBLOX → API when player types /v CODE
+app.post("/verify", (req, res) => {
+    const { robloxId, code } = req.body;
+
+    if (!robloxId || !code)
+        return res.status(400).send("INVALID_PAYLOAD");
+
+    pending.push(req.body);
     res.send("RECEIVED");
 });
 
-// BOT fetches pending verifications
 app.get("/pending", (req, res) => {
     res.json(pending);
 });
 
-// BOT clears completed one
 app.post("/clear", (req, res) => {
     const { robloxId } = req.body;
-
-    // Remove by robloxId now
-    pending = pending.filter(p => Number(p.robloxId) !== Number(robloxId));
-
+    pending = pending.filter(p => p.robloxId !== robloxId);
     res.send("CLEARED");
 });
 
-// Home page
-app.get("/", (req, res) => {
-    res.send("Royal Guard Verification API running.");
+app.post("/relayclear", (req, res) => {
+    const { robloxId } = req.body;
+    relay = relay.filter(r => r.robloxId !== robloxId);
+    res.send("CLEARED");
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("API running on port", PORT));
+app.listen(process.env.PORT || 3000, () =>
+    console.log("API running.")
+);
