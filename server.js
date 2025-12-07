@@ -10,16 +10,17 @@ let pending = [];
 
 // ROBLOX sends a request here
 app.post("/verify", (req, res) => {
-    const { username, code, discordId, channelId } = req.body;
+    const { robloxId, code, discordId, channelId } = req.body;
 
-    if (!username || !code || !discordId || !channelId) {
+    // MUST check robloxId instead of username
+    if (!robloxId || !code || !discordId || !channelId) {
         return res.status(400).send("INVALID_PAYLOAD");
     }
 
     console.log("New verification request:", req.body);
 
     pending.push({
-        username,
+        robloxId: Number(robloxId),  // ALWAYS store as number
         code,
         discordId,
         channelId
@@ -35,9 +36,10 @@ app.get("/pending", (req, res) => {
 
 // BOT clears completed one
 app.post("/clear", (req, res) => {
-    const { username } = req.body;
+    const { robloxId } = req.body;
 
-    pending = pending.filter(p => p.username !== username);
+    // Remove by robloxId now
+    pending = pending.filter(p => Number(p.robloxId) !== Number(robloxId));
 
     res.send("CLEARED");
 });
